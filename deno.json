@@ -1,28 +1,8 @@
 {
-  "version": "2.0.0",
-  "description": "A Deno-based proxy server to allow users in China to access X website",
-  "main": "mod.ts",
   "imports": {
-    "$std/": "https://deno.land/std@0.192.0/"
+    "std/": "https://deno.land/std@0.192.0/"
   },
   "tasks": {
-    "start": "deno run --allow-net mod.ts",
-    "dev": "deno run --allow-net --watch mod.ts"
-  },
-  "deploy": {
-    "project": "x-website-proxy",
-    "entrypoint": "mod.ts"
-  },
-  "lint": {
-    "rules": {
-      "tags": ["recommended"]
-    }
-  },
-  "fmt": {
-    "useTabs": false,
-    "lineWidth": 100,
-    "indentWidth": 2,
-    "semi": true,
-    "singleQuote": false
+    "start": "deno run --allow-net mod.ts"
   }
 }
