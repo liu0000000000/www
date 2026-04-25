@@ -5,139 +5,160 @@ const HTML_PAGE = `<!DOCTYPE html>
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>网页转MHT查看器</title>
+  <title>网页转MHT下载器</title>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
-    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: #1a1a1a; color: #fff; height: 100vh; display: flex; flex-direction: column; }
-    .header { background: #2d2d2d; padding: 15px 20px; display: flex; align-items: center; gap: 10px; border-bottom: 1px solid #444; }
-    .logo { font-size: 18px; font-weight: bold; color: #00d4ff; }
-    .address-bar { flex: 1; display: flex; align-items: center; background: #1a1a1a; border-radius: 6px; padding: 8px 12px; border: 1px solid #444; }
-    .address-bar input { flex: 1; background: transparent; border: none; color: #fff; font-size: 14px; outline: none; }
-    .address-bar button { background: #00d4ff; border: none; color: #000; padding: 6px 16px; border-radius: 4px; cursor: pointer; font-weight: bold; }
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: #1a1a1a; color: #fff; min-height: 100vh; display: flex; flex-direction: column; }
+    .header { background: #2d2d2d; padding: 20px; border-bottom: 1px solid #444; }
+    .logo { font-size: 24px; font-weight: bold; color: #00d4ff; margin-bottom: 20px; }
+    .address-bar { display: flex; gap: 10px; align-items: center; }
+    .address-bar input { flex: 1; background: #1a1a1a; border: 1px solid #444; border-radius: 6px; padding: 12px 16px; color: #fff; font-size: 16px; outline: none; }
+    .address-bar button { background: #00d4ff; border: none; color: #000; padding: 12px 24px; border-radius: 6px; cursor: pointer; font-weight: bold; font-size: 16px; transition: background 0.2s; }
     .address-bar button:hover { background: #00b8e6; }
-    .content { flex: 1; display: flex; overflow: hidden; }
-    .sidebar { width: 200px; background: #2d2d2d; border-right: 1px solid #444; padding: 10px; overflow-y: auto; }
-    .sidebar h3 { font-size: 12px; color: #888; margin-bottom: 10px; text-transform: uppercase; }
-    .sidebar-item { padding: 8px 10px; margin-bottom: 4px; background: #3d3d3d; border-radius: 4px; cursor: pointer; font-size: 13px; word-break: break-all; }
-    .sidebar-item:hover { background: #4d4d4d; }
-    .viewer { flex: 1; padding: 20px; overflow-y: auto; }
-    .viewer iframe { width: 100%; height: 80vh; border: none; background: #fff; border-radius: 8px; }
-    .loading, .error { display: none; text-align: center; padding: 40px; }
-    .loading.show { display: block; }
-    .error.show { display: block; color: #ff6b6b; }
-    .spinner { width: 40px; height: 40px; border: 3px solid #444; border-top-color: #00d4ff; border-radius: 50%; animation: spin 1s linear infinite; margin: 0 auto 20px; }
-    @keyframes spin { to { transform: rotate(360deg); } }
-    .debug { background: #333; padding: 10px; margin-top: 10px; border-radius: 4px; font-size: 12px; color: #ccc; }
+    .content { flex: 1; padding: 20px; }
+    .card { background: #2d2d2d; border-radius: 8px; padding: 20px; margin-bottom: 20px; }
+    .card h2 { color: #00d4ff; margin-bottom: 15px; font-size: 18px; }
+    .status { background: #3d3d3d; border-radius: 6px; padding: 15px; margin: 10px 0; }
+    .status.loading { border-left: 4px solid #00d4ff; }
+    .status.error { border-left: 4px solid #ff6b6b; color: #ff6b6b; }
+    .status.success { border-left: 4px solid #4ecdc4; color: #4ecdc4; }
+    .history { margin-top: 20px; }
+    .history-item { background: #3d3d3d; border-radius: 6px; padding: 10px 15px; margin-bottom: 8px; cursor: pointer; display: flex; justify-content: space-between; align-items: center; }
+    .history-item:hover { background: #4d4d4d; }
+    .history-item .url { font-size: 14px; word-break: break-all; flex: 1; }
+    .history-item .date { font-size: 12px; color: #888; margin-left: 10px; }
+    .footer { background: #2d2d2d; padding: 15px 20px; border-top: 1px solid #444; text-align: center; font-size: 14px; color: #888; }
   </style>
 </head>
 <body>
   <div class="header">
-    <div class="logo">🌐 MHT Viewer</div>
+    <div class="logo">🌐 MHT Downloader</div>
     <div class="address-bar">
-      <input type="text" id="urlInput" placeholder="输入网址，例如 https://example.com" value="https://example.com">
-      <button onclick="fetchPage()">访问</button>
+      <input type="text" id="urlInput" placeholder="输入网址，例如 https://x.com" value="https://x.com">
+      <button onclick="downloadMHT()">下载MHT</button>
     </div>
   </div>
   <div class="content">
-    <div class="sidebar">
-      <h3>历史记录</h3>
-      <div id="history"></div>
+    <div class="card">
+      <h2>操作状态</h2>
+      <div id="status" class="status"></div>
     </div>
-    <div class="viewer">
-      <div id="loading" class="loading"><div class="spinner"></div><p>正在获取网页内容...</p></div>
-      <div id="error" class="error"></div>
-      <iframe id="mhtViewer" sandbox="allow-same-origin allow-scripts allow-forms"></iframe>
-      <div id="debug" class="debug"></div>
+    <div class="card">
+      <h2>下载历史</h2>
+      <div id="history" class="history"></div>
     </div>
+  </div>
+  <div class="footer">
+    MHT Downloader v1.0 | 网页转MHT文件工具
   </div>
   <script>
     const PROXY_URL = window.location.origin;
-    let history = JSON.parse(localStorage.getItem('mht_history') || '[]');
+    let downloadHistory = JSON.parse(localStorage.getItem('mht_download_history') || '[]');
 
     function updateHistory() {
       const container = document.getElementById('history');
-      container.innerHTML = history.map(url => 
-        '<div class="sidebar-item" onclick="loadFromHistory(\'' + url + '\')">' + url + '</div>'
+      if (downloadHistory.length === 0) {
+        container.innerHTML = '<div class="status">暂无下载历史</div>';
+        return;
+      }
+      container.innerHTML = downloadHistory.map(item => 
+        '<div class="history-item" onclick="loadFromHistory(\'' + item.url + '\')">' +
+        '<div class="url">' + item.url + '</div>' +
+        '<div class="date">' + new Date(item.timestamp).toLocaleString() + '</div>' +
+        '</div>'
       ).join('');
     }
 
     function loadFromHistory(url) {
       document.getElementById('urlInput').value = url;
-      fetchPage();
+      downloadMHT();
     }
 
-    function logDebug(message) {
-      const debug = document.getElementById('debug');
-      debug.textContent = message;
+    function showStatus(message, type = 'info') {
+      const status = document.getElementById('status');
+      status.textContent = message;
+      status.className = 'status ' + type;
     }
 
-    async function fetchPage() {
+    async function downloadMHT() {
       const url = document.getElementById('urlInput').value.trim();
-      if (!url) return;
+      if (!url) {
+        showStatus('请输入网址', 'error');
+        return;
+      }
 
-      const loading = document.getElementById('loading');
-      const error = document.getElementById('error');
-      const viewer = document.getElementById('mhtViewer');
-
-      loading.classList.add('show');
-      error.classList.remove('show');
-      viewer.style.display = 'none';
+      showStatus('正在获取网页内容...', 'loading');
 
       try {
         const fullUrl = url.startsWith('http') ? url : 'https://' + url;
-        logDebug('正在请求: ' + fullUrl);
+        showStatus('正在处理: ' + fullUrl, 'loading');
         
-        const response = await fetch(PROXY_URL + '/fetch?url=' + encodeURIComponent(fullUrl));
+        const response = await fetch(PROXY_URL + '/download?url=' + encodeURIComponent(fullUrl));
         
-        if (!response.ok) throw new Error('获取失败: ' + response.status + ' ' + await response.text());
-
-        const mhtContent = await response.text();
-        logDebug('MHT内容长度: ' + mhtContent.length + ' 字符');
-        
-        if (!history.includes(fullUrl)) {
-          history.unshift(fullUrl);
-          if (history.length > 20) history.pop();
-          localStorage.setItem('mht_history', JSON.stringify(history));
-          updateHistory();
+        if (!response.ok) {
+          const errorText = await response.text();
+          throw new Error('下载失败: ' + response.status + ' ' + errorText);
         }
 
-        // 直接显示HTML内容（暂时不使用MHT）
-        if (mhtContent.includes('<html>')) {
-          logDebug('检测到HTML内容，直接显示');
-          const blob = new Blob([mhtContent], { type: 'text/html' });
-          const blobUrl = URL.createObjectURL(blob);
-          viewer.onload = () => URL.revokeObjectURL(blobUrl);
-          viewer.src = blobUrl;
-          viewer.style.display = 'block';
-        } else {
-          logDebug('使用MHT格式');
-          const blob = new Blob([mhtContent], { type: 'message/rfc822' });
-          const blobUrl = URL.createObjectURL(blob);
-          viewer.onload = () => URL.revokeObjectURL(blobUrl);
-          viewer.src = blobUrl;
-          viewer.style.display = 'block';
-        }
+        const blob = await response.blob();
+        const filename = new URL(fullUrl).hostname + '_' + Date.now() + '.mht';
+        
+        const link = document.createElement('a');
+        link.href = URL.createObjectURL(blob);
+        link.download = filename;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        
+        // 添加到历史记录
+        downloadHistory.unshift({
+          url: fullUrl,
+          timestamp: Date.now()
+        });
+        if (downloadHistory.length > 20) downloadHistory.pop();
+        localStorage.setItem('mht_download_history', JSON.stringify(downloadHistory));
+        updateHistory();
+        
+        showStatus('MHT文件已开始下载', 'success');
       } catch (err) {
-        logDebug('错误: ' + err.message);
-        error.textContent = err.message;
-        error.classList.add('show');
-      } finally {
-        loading.classList.remove('show');
+        showStatus('错误: ' + err.message, 'error');
       }
     }
 
     document.getElementById('urlInput').addEventListener('keypress', (e) => {
-      if (e.key === 'Enter') fetchPage();
+      if (e.key === 'Enter') downloadMHT();
     });
 
     updateHistory();
-    // 自动加载示例
-    // fetchPage();
   </script>
 </body>
 </html>`;
 
-async function handleFetchRequest(req: Request): Promise<Response> {
+function generateMHT(html: string, baseUrl: string): string {
+  const boundary = "----MHTBoundary" + Date.now();
+  const now = new Date().toUTCString();
+  
+  let mht = "From: <Saved by Deno MHT Converter>\r\n";
+  mht += "Subject: " + new URL(baseUrl).hostname + "\r\n";
+  mht += "Date: " + now + "\r\n";
+  mht += "MIME-Version: 1.0\r\n";
+  mht += "Content-Type: multipart/related;\r\n";
+  mht += ' boundary="' + boundary + '"\r\n';
+  mht += "X-Generated-By: Deno MHT Converter\r\n";
+  mht += "\r\n";
+  mht += "--" + boundary + "\r\n";
+  mht += "Content-Type: text/html; charset=utf-8\r\n";
+  mht += "Content-Transfer-Encoding: quoted-printable\r\n";
+  mht += "Content-Location: " + baseUrl + "\r\n";
+  mht += "\r\n";
+  mht += html;
+  mht += "\r\n";
+  mht += "--" + boundary + "--\r\n";
+  
+  return mht;
+}
+
+async function handleDownloadRequest(req: Request): Promise<Response> {
   const url = new URL(req.url).searchParams.get("url");
   
   if (!url) {
@@ -156,11 +177,15 @@ async function handleFetchRequest(req: Request): Promise<Response> {
 
     const finalUrl = response.url || url;
     const html = await response.text();
+    const mht = generateMHT(html, finalUrl);
     
-    // 暂时直接返回HTML，不使用MHT
-    return new Response(html, {
+    const hostname = new URL(url).hostname;
+    const filename = `${hostname}_${Date.now()}.mht`;
+    
+    return new Response(mht, {
       headers: {
-        "Content-Type": "text/html; charset=utf-8",
+        "Content-Type": "message/rfc822",
+        "Content-Disposition": `attachment; filename="${filename}"`,
         "Access-Control-Allow-Origin": ALLOWED_ORIGINS,
       },
     });
@@ -187,8 +212,8 @@ async function handleRequest(req: Request): Promise<Response> {
     });
   }
   
-  if (url.pathname === "/fetch" && req.method === "GET") {
-    return handleFetchRequest(req);
+  if (url.pathname === "/download" && req.method === "GET") {
+    return handleDownloadRequest(req);
   }
 
   return new Response("Not Found", { status: 404 });
