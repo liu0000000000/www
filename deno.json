@@ -3,6 +3,9 @@
   "version": "2.0.0",
   "description": "A Deno-based proxy server to allow users in China to access X website",
   "main": "mod.ts",
+  "exports": {
+    ".": "./mod.ts"
+  },
   "imports": {
     "$std/": "https://deno.land/std@0.192.0/"
   },
