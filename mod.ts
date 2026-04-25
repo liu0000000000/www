@@ -1,13 +1,4 @@
-import { serve } from "https://deno.land/std@0.192.0/http/server.ts";
-
-interface FetchEvent extends Event {
-  request: Request;
-  respondWith(response: Promise<Response> | Response): void;
-}
-
 const X_DOMAIN = Deno.env.get("X_DOMAIN") || "x.com";
-const PORT = parseInt(Deno.env.get("PORT") || "8080");
-
 const ALLOWED_ORIGINS = Deno.env.get("ALLOWED_ORIGINS") || "*";
 
 async function handleRequest(req: Request): Promise<Response> {
@@ -57,12 +48,6 @@ async function handleRequest(req: Request): Promise<Response> {
   }
 }
 
-if (Deno.env.get("DENO_DEPLOYMENT_ID")) {
-  addEventListener("fetch", (event: FetchEvent) => {
-    event.respondWith(handleRequest(event.request));
-  });
-} else {
-  console.log(`Proxy server running on http://localhost:${PORT}`);
-  console.log(`Proxying requests to ${X_DOMAIN}`);
-  await serve(handleRequest, { port: PORT });
-}
+addEventListener("fetch", (event) => {
+  event.respondWith(handleRequest(event.request));
+});
