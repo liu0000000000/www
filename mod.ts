@@ -21,19 +21,20 @@ const HTML_PAGE = `<!DOCTYPE html>
     .sidebar-item { padding: 8px 10px; margin-bottom: 4px; background: #3d3d3d; border-radius: 4px; cursor: pointer; font-size: 13px; word-break: break-all; }
     .sidebar-item:hover { background: #4d4d4d; }
     .viewer { flex: 1; padding: 20px; overflow-y: auto; }
-    .viewer iframe { width: 100%; height: 100%; border: none; background: #fff; border-radius: 8px; }
+    .viewer iframe { width: 100%; height: 80vh; border: none; background: #fff; border-radius: 8px; }
     .loading, .error { display: none; text-align: center; padding: 40px; }
     .loading.show { display: block; }
     .error.show { display: block; color: #ff6b6b; }
     .spinner { width: 40px; height: 40px; border: 3px solid #444; border-top-color: #00d4ff; border-radius: 50%; animation: spin 1s linear infinite; margin: 0 auto 20px; }
     @keyframes spin { to { transform: rotate(360deg); } }
+    .debug { background: #333; padding: 10px; margin-top: 10px; border-radius: 4px; font-size: 12px; color: #ccc; }
   </style>
 </head>
 <body>
   <div class="header">
     <div class="logo">🌐 MHT Viewer</div>
     <div class="address-bar">
-      <input type="text" id="urlInput" placeholder="输入网址，例如 https://example.com" value="">
+      <input type="text" id="urlInput" placeholder="输入网址，例如 https://example.com" value="https://example.com">
       <button onclick="fetchPage()">访问</button>
     </div>
   </div>
@@ -45,7 +46,8 @@ const HTML_PAGE = `<!DOCTYPE html>
     <div class="viewer">
       <div id="loading" class="loading"><div class="spinner"></div><p>正在获取网页内容...</p></div>
       <div id="error" class="error"></div>
-      <iframe id="mhtViewer" sandbox="allow-same-origin"></iframe>
+      <iframe id="mhtViewer" sandbox="allow-same-origin allow-scripts allow-forms"></iframe>
+      <div id="debug" class="debug"></div>
     </div>
   </div>
   <script>
@@ -55,13 +57,18 @@ const HTML_PAGE = `<!DOCTYPE html>
     function updateHistory() {
       const container = document.getElementById('history');
       container.innerHTML = history.map(url => 
-        '<div class="sidebar-item" onclick="loadFromHistory(\\'' + url + '\\')">' + url + '</div>'
+        '<div class="sidebar-item" onclick="loadFromHistory(\'' + url + '\')">' + url + '</div>'
       ).join('');
     }
 
     function loadFromHistory(url) {
       document.getElementById('urlInput').value = url;
       fetchPage();
+    }
+
+    function logDebug(message) {
+      const debug = document.getElementById('debug');
+      debug.textContent = message;
     }
 
     async function fetchPage() {
@@ -78,11 +85,14 @@ const HTML_PAGE = `<!DOCTYPE html>
 
       try {
         const fullUrl = url.startsWith('http') ? url : 'https://' + url;
+        logDebug('正在请求: ' + fullUrl);
+        
         const response = await fetch(PROXY_URL + '/fetch?url=' + encodeURIComponent(fullUrl));
         
-        if (!response.ok) throw new Error('获取失败: ' + response.status);
+        if (!response.ok) throw new Error('获取失败: ' + response.status + ' ' + await response.text());
 
         const mhtContent = await response.text();
+        logDebug('MHT内容长度: ' + mhtContent.length + ' 字符');
         
         if (!history.includes(fullUrl)) {
           history.unshift(fullUrl);
@@ -91,12 +101,24 @@ const HTML_PAGE = `<!DOCTYPE html>
           updateHistory();
         }
 
-        const blob = new Blob([mhtContent], { type: 'message/rfc822' });
-        const blobUrl = URL.createObjectURL(blob);
-        viewer.onload = () => URL.revokeObjectURL(blobUrl);
-        viewer.src = blobUrl;
-        viewer.style.display = 'block';
+        // 直接显示HTML内容（暂时不使用MHT）
+        if (mhtContent.includes('<html>')) {
+          logDebug('检测到HTML内容，直接显示');
+          const blob = new Blob([mhtContent], { type: 'text/html' });
+          const blobUrl = URL.createObjectURL(blob);
+          viewer.onload = () => URL.revokeObjectURL(blobUrl);
+          viewer.src = blobUrl;
+          viewer.style.display = 'block';
+        } else {
+          logDebug('使用MHT格式');
+          const blob = new Blob([mhtContent], { type: 'message/rfc822' });
+          const blobUrl = URL.createObjectURL(blob);
+          viewer.onload = () => URL.revokeObjectURL(blobUrl);
+          viewer.src = blobUrl;
+          viewer.style.display = 'block';
+        }
       } catch (err) {
+        logDebug('错误: ' + err.message);
         error.textContent = err.message;
         error.classList.add('show');
       } finally {
@@ -109,33 +131,11 @@ const HTML_PAGE = `<!DOCTYPE html>
     });
 
     updateHistory();
+    // 自动加载示例
+    // fetchPage();
   </script>
 </body>
 </html>`;
-
-function generateMHT(html: string, baseUrl: string): string {
-  const boundary = "----MHTBoundary" + Date.now();
-  const now = new Date().toUTCString();
-  
-  let mht = "From: <Saved by Deno MHT Converter>\r\n";
-  mht += "Subject: " + new URL(baseUrl).hostname + "\r\n";
-  mht += "Date: " + now + "\r\n";
-  mht += "MIME-Version: 1.0\r\n";
-  mht += "Content-Type: multipart/related;\r\n";
-  mht += ' boundary="' + boundary + '"\r\n';
-  mht += "X-Generated-By: Deno MHT Converter\r\n";
-  mht += "\r\n";
-  mht += "--" + boundary + "\r\n";
-  mht += "Content-Type: text/html; charset=utf-8\r\n";
-  mht += "Content-Transfer-Encoding: quoted-printable\r\n";
-  mht += "Content-Location: " + baseUrl + "\r\n";
-  mht += "\r\n";
-  mht += html;
-  mht += "\r\n";
-  mht += "--" + boundary + "--\r\n";
-  
-  return mht;
-}
 
 async function handleFetchRequest(req: Request): Promise<Response> {
   const url = new URL(req.url).searchParams.get("url");
@@ -147,7 +147,7 @@ async function handleFetchRequest(req: Request): Promise<Response> {
   try {
     const response = await fetch(url, {
       headers: {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
         'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
         'Accept-Language': 'zh-CN,zh;q=0.9,en;q=0.8',
       },
@@ -156,12 +156,11 @@ async function handleFetchRequest(req: Request): Promise<Response> {
 
     const finalUrl = response.url || url;
     const html = await response.text();
-    const mht = generateMHT(html, finalUrl);
     
-    return new Response(mht, {
+    // 暂时直接返回HTML，不使用MHT
+    return new Response(html, {
       headers: {
-        "Content-Type": "message/rfc822",
-        "Content-Disposition": "inline; filename=\"" + new URL(url).hostname + ".mht\"",
+        "Content-Type": "text/html; charset=utf-8",
         "Access-Control-Allow-Origin": ALLOWED_ORIGINS,
       },
     });
