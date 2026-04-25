@@ -1,5 +1,10 @@
 import { serve } from "https://deno.land/std@0.192.0/http/server.ts";
 
+interface FetchEvent extends Event {
+  request: Request;
+  respondWith(response: Promise<Response> | Response): void;
+}
+
 const X_DOMAIN = Deno.env.get("X_DOMAIN") || "x.com";
 const PORT = parseInt(Deno.env.get("PORT") || "8080");
 
