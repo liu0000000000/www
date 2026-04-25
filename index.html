@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>网页转MHT预览器</title>
+  <title>网页预览器</title>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
     body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: #1a1a1a; color: #fff; min-height: 100vh; display: flex; flex-direction: column; }
@@ -38,10 +38,10 @@
 </head>
 <body>
   <div class="header">
-    <div class="logo">🌐 MHT预览器</div>
+    <div class="logo">🌐 网页预览器</div>
     <div class="address-bar">
       <input type="text" id="urlInput" placeholder="输入网址，例如 https://x.com" value="https://x.com">
-      <button onclick="generateAndPreviewMHT()">生成MHT</button>
+      <button onclick="previewWebpage()">预览网页</button>
     </div>
   </div>
   <div class="content">
@@ -53,23 +53,22 @@
     </div>
     <div class="preview">
       <div class="preview-header">
-        <div class="preview-title" id="previewTitle">请输入网址并点击生成MHT</div>
+        <div class="preview-title" id="previewTitle">请输入网址并点击预览网页</div>
         <div class="preview-actions">
-          <button onclick="generateAndPreviewMHT()">刷新</button>
+          <button onclick="previewWebpage()">刷新</button>
         </div>
       </div>
       <div class="preview-content">
-        <iframe id="previewFrame" sandbox="allow-same-origin allow-scripts allow-forms"></iframe>
+        <iframe id="previewFrame" sandbox="allow-same-origin allow-scripts allow-forms allow-popups allow-top-navigation"></iframe>
       </div>
     </div>
   </div>
   <div class="footer">
-    MHT预览器 v1.0 | 输入网址生成MHT并预览
+    网页预览器 v1.0 | 输入网址直接预览
   </div>
   <script>
-    let previewHistory = JSON.parse(localStorage.getItem('mht_preview_history') || '[]');
+    let previewHistory = JSON.parse(localStorage.getItem('preview_history') || '[]');
     let currentUrl = '';
-    let currentMHT = '';
 
     function updateHistory() {
       const container = document.getElementById('history');
@@ -87,7 +86,7 @@
 
     function loadFromHistory(url) {
       document.getElementById('urlInput').value = url;
-      generateAndPreviewMHT();
+      previewWebpage();
     }
 
     function showStatus(message, type = 'info') {
@@ -96,65 +95,34 @@
       status.className = 'status ' + type;
     }
 
-    function generateMHT(html, baseUrl) {
-      const boundary = "----MHTBoundary" + Date.now();
-      const now = new Date().toUTCString();
-      
-      let mht = "From: <Saved by MHT Previewer>\r\n";
-      mht += "Subject: " + new URL(baseUrl).hostname + "\r\n";
-      mht += "Date: " + now + "\r\n";
-      mht += "MIME-Version: 1.0\r\n";
-      mht += "Content-Type: multipart/related;\r\n";
-      mht += ' boundary="' + boundary + '"\r\n';
-      mht += "X-Generated-By: MHT Previewer\r\n";
-      mht += "\r\n";
-      mht += "--" + boundary + "\r\n";
-      mht += "Content-Type: text/html; charset=utf-8\r\n";
-      mht += "Content-Transfer-Encoding: quoted-printable\r\n";
-      mht += "Content-Location: " + baseUrl + "\r\n";
-      mht += "\r\n";
-      mht += html;
-      mht += "\r\n";
-      mht += "--" + boundary + "--\r\n";
-      
-      return mht;
-    }
-
-    async function generateAndPreviewMHT() {
+    function previewWebpage() {
       const url = document.getElementById('urlInput').value.trim();
       if (!url) {
         showStatus('请输入网址', 'error');
         return;
       }
 
-      showStatus('正在获取网页内容...', 'loading');
+      showStatus('正在加载网页...', 'loading');
       document.getElementById('previewTitle').textContent = '加载中...';
 
       try {
         const fullUrl = url.startsWith('http') ? url : 'https://' + url;
         currentUrl = fullUrl;
-        showStatus('正在处理: ' + fullUrl, 'loading');
+        showStatus('正在加载: ' + fullUrl, 'loading');
         
-        // 使用第三方CORS代理
-        const proxyUrl = 'https://api.allorigins.win/raw?url=' + encodeURIComponent(fullUrl);
-        const response = await fetch(proxyUrl);
-        
-        if (!response.ok) {
-          const errorText = await response.text();
-          throw new Error('获取失败: ' + response.status + ' ' + errorText);
-        }
-
-        const html = await response.text();
-        currentMHT = generateMHT(html, fullUrl);
-        
-        // 在iframe中显示MHT内容
+        // 直接在iframe中加载网页
         const iframe = document.getElementById('previewFrame');
-        const blob = new Blob([currentMHT], { type: 'message/rfc822' });
-        const blobUrl = URL.createObjectURL(blob);
-        iframe.onload = () => URL.revokeObjectURL(blobUrl);
-        iframe.src = blobUrl;
+        iframe.onload = function() {
+          document.getElementById('previewTitle').textContent = fullUrl;
+          showStatus('网页加载成功', 'success');
+        };
         
-        document.getElementById('previewTitle').textContent = fullUrl;
+        iframe.onerror = function() {
+          showStatus('网页加载失败', 'error');
+          document.getElementById('previewTitle').textContent = '加载失败';
+        };
+        
+        iframe.src = fullUrl;
         
         // 添加到历史记录
         if (!previewHistory.some(item => item.url === fullUrl)) {
@@ -163,11 +131,10 @@
             timestamp: Date.now()
           });
           if (previewHistory.length > 20) previewHistory.pop();
-          localStorage.setItem('mht_preview_history', JSON.stringify(previewHistory));
+          localStorage.setItem('preview_history', JSON.stringify(previewHistory));
           updateHistory();
         }
         
-        showStatus('MHT生成并预览成功', 'success');
       } catch (err) {
         showStatus('错误: ' + err.message, 'error');
         document.getElementById('previewTitle').textContent = '预览失败';
@@ -175,7 +142,7 @@
     }
 
     document.getElementById('urlInput').addEventListener('keypress', (e) => {
-      if (e.key === 'Enter') generateAndPreviewMHT();
+      if (e.key === 'Enter') previewWebpage();
     });
 
     updateHistory();
